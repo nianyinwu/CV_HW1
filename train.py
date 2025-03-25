@@ -1,93 +1,125 @@
+"""Training an image classification model."""
+
 import os
-import torch
 import argparse
+
+import torch
 import torch.nn as nn
 import torch.optim as optim
-
-
-from tqdm import tqdm
-from model import model
-from eval import evaluate
 from torch.backends import cudnn
-from dataloader import dataloader
-from utils import tqdm_bar, DrawFigure
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-cudnn.benchmark = True  # fast training
+from tqdm import tqdm
+
+from model import get_model
+from eval import evaluate
+from dataloader import dataloader
+from utils import tqdm_bar, draw_figure
+
+
+# Enable fast training
+cudnn.benchmark = True
 
 
 def get_args():
-    parser = argparse.ArgumentParser(
-        description='Train the Classification Model(ResNeXt50)')
+    """
+    Parse command-line arguments.
+    """
+
+    parser = argparse.ArgumentParser(description="Training")
+
     parser.add_argument(
         '--device',
         type=str,
         choices=[
             "cuda",
             "cpu"],
-        default="cuda")
+        default="cuda"
+    )
     parser.add_argument(
         '--data_path',
         '-d',
         type=str,
         default='./data',
-        help='path of the input data')
+        help='path of the input data'
+    )
     parser.add_argument(
         '--save_path',
         '-s',
         type=str,
         default='./n_saved_model',
-        help='path to save the training model')
+        help='path to save the training model'
+    )
     parser.add_argument(
         '--epochs',
         '-e',
         type=int,
         default=50,
-        help='number of epochs')
+        help='number of epochs'
+    )
     parser.add_argument(
         '--batch_size',
         '-b',
         type=int,
         default=16,
-        help='batch size')
+        help='batch size'
+    )
     parser.add_argument(
         '--learning_rate',
         '-lr',
         type=float,
         default=1e-4,
-        help='learning rate')
+        help='learning rate'
+    )
 
 
     return parser.parse_args()
 
 
 def train(
-        args,
-        epoch,
-        device,
-        model,
-        TrainLoader,
-        criterion,
-        optimizer):
-    totalLoss = 0
+    args: argparse.Namespace,
+    cur_epoch: int,
+    train_device: torch.device,
+    train_model: nn.Module,
+    data_loader: torch.utils.data.DataLoader,
+    criterion: nn.Module,
+    optimizer: optim.Optimizer,
+) -> tuple[torch.Tensor, float]:
+    """
+    Train the model for one epoch.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+        cur_epoch (int): Current training epoch.
+        train_device (torch.device): Device to train on (CPU or GPU).
+        train_model (nn.Module): The model to train.
+        data_loader (DataLoader): DataLoader for training data.
+        criterion (nn.Module): Loss function.
+        optimizer (Optimizer): Optimizer for training.
+
+    Returns:
+        Tuple[torch.Tensor, float]: The average training loss and accuracy.
+    """
+
+    total_loss = 0
     correct = 0
-    for img, label in (pbar := tqdm(TrainLoader, ncols=120)):
+    for img, label in (pbar := tqdm(data_loader, ncols=120)):
+
         # Set image and label to the same device as the model
-        img = img.to(device=device)
-        label = label.to(device=device)
+        img = img.to(device=train_device)
+        label = label.to(device=train_device)
 
         # clear gradient
         optimizer.zero_grad()
 
         # input the data to model
-        pred = model(img)
+        pred = train_model(img)
+
         # Loss Function
         loss = criterion(pred, label)
 
-        tqdm_bar('Train', pbar, loss.detach().cpu(), epoch, args.epochs)
-
         # Calculate Total Loss
-        totalLoss += loss
+        total_loss += loss
 
         # Calculate Top1 Accuracy
         pred = torch.argmax(pred, dim=1)
@@ -102,83 +134,83 @@ def train(
         # Clear Gradient
         optimizer.zero_grad()
 
+        tqdm_bar('Train', pbar, loss.detach().cpu(), cur_epoch, args.epochs)
+
+
     # Calculate Average Loss of current epoch
-    AvgLoss = totalLoss / len(TrainLoader)
-    AvgAcc = correct / len(TrainLoader.dataset)
-    return AvgLoss, AvgAcc
+    avg_loss = total_loss / len(data_loader)
+    avg_acc = correct / len(data_loader.dataset)
+    return avg_loss, avg_acc
 
 
 if __name__ == "__main__":
-    args = get_args()
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    os.makedirs(args.save_path, exist_ok=True)
+    opt = get_args()
+    device = torch.device(opt.device if torch.cuda.is_available() else "cpu")
 
-    model = model().to(device)
+    # Ensure the save path exist
+    os.makedirs(opt.save_path, exist_ok=True)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
+    model = get_model().to(device)
+
+    # Setting the loss function, optimizer and scheduler
+    loss_func = nn.CrossEntropyLoss()
+    optim_func = optim.Adam(model.parameters(), lr=opt.learning_rate)
+    scheduler = ReduceLROnPlateau(optim_func, mode='min', factor=0.1, patience=3)
 
 
-    # setting Dataset and DataLoader
-    TrainLoader = dataloader(args=args, mode='train')
-    ValidLoader = dataloader(args=args, mode='val')
+    # Setting DataLoader for training and validation
+    train_loader = dataloader(args=opt, mode='train')
+    valid_loader = dataloader(args=opt, mode='val')
+
 
     # To store Loss and Accuracy of Training & Validation
-    Train_loss = []
-    Train_accuracy = []
-    Valid_loss = []
-    Valid_accuracy = []
-    train_best = 0
-    val_best = 0
+    train_loss_list = []
+    train_acc_list = []
+    valid_loss_list = []
+    valid_acc_list = []
+    best_train_acc = 0
+    best_val_acc = 0
 
-    for epoch in range(args.epochs):
+    for epoch in range(opt.epochs):
         model.train()
 
-        train_loss, train_accuracy = train(
-            args, epoch, device, model, TrainLoader, criterion, optimizer)
-        Train_loss.append(train_loss.detach().cpu().numpy())
-        Train_accuracy.append(train_accuracy)
+        train_loss, train_acc = train(
+            opt, epoch, device, model, train_loader, loss_func, optim_func)
+        train_loss_list.append(train_loss.detach().cpu().numpy())
+        train_acc_list.append(train_acc)
 
-        val_loss, val_accuracy = evaluate(
-            args, epoch, device, model, ValidLoader, criterion)
-        Valid_loss.append(val_loss.detach().cpu().numpy())
-        Valid_accuracy.append(val_accuracy)
+        valid_loss, valid_acc = evaluate(
+            opt, epoch, device, model, valid_loader, loss_func)
+        valid_loss_list.append(valid_loss.detach().cpu().numpy())
+        valid_acc_list.append(valid_acc)
 
-        current_lr = optimizer.param_groups[0]['lr']
+        current_lr = optim_func.param_groups[0]['lr']
 
-        print(f"Epoch {epoch+1}/{args.epochs} | Train Loss: {train_loss:.4f} Acc: {train_accuracy:.2%} | Val Loss: {val_loss:.4f} Acc: {val_accuracy:.2%} | LR: {current_lr:.1e}")
+        print(
+            f"Epoch {epoch + 1}/{opt.epochs} | "
+            f"Train Loss: {train_loss:.4f} Acc: {train_acc:.2%} | "
+            f"Val Loss: {valid_loss:.4f} Acc: {valid_acc:.2%} | "
+            f"LR: {current_lr:.1e}"
+        )
 
-        scheduler.step(val_loss.item())
+        scheduler.step(valid_loss.item())
 
-        if val_accuracy > val_best:
-            val_best = val_accuracy
-            torch.save(
-                model.state_dict(),
-                os.path.join(
-                    args.save_path,
-                    'val_best.pth'))
+        if valid_acc > best_val_acc:
+            best_val_acc = valid_acc
+            torch.save(model.state_dict(), os.path.join(opt.save_path, 'val_best.pth'))
 
-        if train_accuracy > train_best:
-            train_best = train_accuracy
-            torch.save(
-                model.state_dict(),
-                os.path.join(
-                    args.save_path,
-                    'train_best.pth'))
+        if train_acc > best_train_acc:
+            best_train_acc = train_acc
+            torch.save(model.state_dict(), os.path.join(opt.save_path, 'train_best.pth'))
 
         if epoch % 10 == 0:
-            torch.save(
-                model.state_dict(),
-                os.path.join(
-                    args.save_path,
-                    f'epoch{epoch}.pth'))
+            torch.save(model.state_dict(), os.path.join(opt.save_path, f'epoch{epoch}.pth'))
 
 
-    torch.save(model.state_dict(), os.path.join(args.save_path, 'last.pth'))
+    torch.save(model.state_dict(), os.path.join(opt.save_path, 'last.pth'))
 
-    DrawFigure('loss', args.save_path, args.epochs, Train_loss, Valid_loss)
+    # Draw Figure
+    draw_figure('loss', opt.save_path, opt.epochs, train_loss, valid_loss)
     print('save loss fig!')
-    DrawFigure('accuracy', args.save_path, args.epochs, Train_accuracy, Valid_accuracy)
+    draw_figure('accuracy', opt.save_path, opt.epochs, train_acc, valid_acc)
     print('save acc fig!')
-

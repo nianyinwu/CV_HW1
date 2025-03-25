@@ -1,40 +1,53 @@
+"""Evaluate an image classification model."""
+
 import torch
 from tqdm import tqdm
 from utils import tqdm_bar
 
 
-def evaluate(args, epoch, device, model, ValidLoader, criterion):
+def evaluate(
+    args,
+    epoch: int,
+    device: torch.device,
+    model: torch.nn.Module,
+    valid_loader: torch.utils.data.DataLoader,
+    criterion: torch.nn.Module
+) -> tuple[torch.Tensor, float]:
+    """
+    Evaluate the model on the validation dataset.
 
-    # to let Batch Normalization and Dropout be closed
+    Args:
+        args: Parsed command-line arguments.
+        epoch: Current epoch number.
+        device: Device to run the evaluation on.
+        model: Trained model to evaluate.
+        valid_loader: DataLoader for the validation set.
+        criterion: Loss function.
+
+    Returns:
+        avg_loss (torch.Tensor): Average validation loss.
+        avg_acc (float): Validation accuracy.
+    """
+
     model.eval()
-
-    TotalLoss = 0
+    total_loss = 0
     correct = 0
 
-    # torch.np_grad to stop autograd
     with torch.no_grad():
-        for img, label in (pbar := tqdm(ValidLoader, ncols=120)):
+        for img, label in (pbar := tqdm(valid_loader, ncols=120)):
+            img = img.to(device)
+            label = label.to(device)
 
-            # Set image and label to the same device as the model
-            img = img.to(device=device)
-            label = label.to(device=device)
-
-            # input the data to model
             pred = model(img)
+            loss = criterion(pred, label)
 
-            # Loss Function
-            Loss = criterion(pred, label)
-
-            # Calculate Top1 Accuracy
             pred = torch.argmax(pred, dim=1)
             correct += (pred == label).sum().item()
+            total_loss += loss
 
-            tqdm_bar('Val', pbar, Loss.detach().cpu(), epoch, args.epochs)
+            tqdm_bar('Val', pbar, loss.detach().cpu(), epoch, args.epochs)
 
-            # Calculate total Loss and total dice score
-            TotalLoss += Loss
+    avg_loss = total_loss / len(valid_loader)
+    avg_acc = correct / len(valid_loader.dataset)
 
-        AvgLoss = TotalLoss / len(ValidLoader)
-        AvgAcc = correct / len(ValidLoader.dataset)
-
-    return AvgLoss, AvgAcc
+    return avg_loss, avg_acc
