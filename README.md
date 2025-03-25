@@ -30,3 +30,4 @@ python3 inference.py -w <the path of model checkpoints>
 ```
 
 ## Performance snapshot
+![image](https://github.com/nianyinwu/CV_HW1/blob/main/result/snapshot.png)
