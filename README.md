@@ -10,8 +10,8 @@ In this lab, we aim to solve an __image classification__ task using ResNet-based
 ## How to install
 1. Clone this repository and navigate to folder
 ```shell
-git clone https://github.com/nianyinwu/NYCU_2025_CV.git
-cd NYCU_2025_CV/HW1
+git clone https://github.com/nianyinwu/CV_HW1.git
+cd CV_HW1
 ```
 2. Install environment
 ```shell
