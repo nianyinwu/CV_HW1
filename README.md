@@ -26,7 +26,7 @@ python3 train.py -e <epochs> -b <batch size> -lr <learning rate> -d <data path> 
 ## Testing ( Inference )
 The predicted results will be saved as `prediction.csv` in the current directory.
 ```shell
-python3 inference.py -w <the path of model checkpoints>
+python3 inference.py -d <data path> -w <the path of model checkpoints>
 ```
 
 ## Performance snapshot

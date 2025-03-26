@@ -210,7 +210,7 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), os.path.join(opt.save_path, 'last.pth'))
 
     # Draw Figure
-    draw_figure('loss', opt.save_path, opt.epochs, train_loss, valid_loss)
+    draw_figure('loss', opt.save_path, opt.epochs, train_loss_list, valid_loss_list)
     print('save loss fig!')
-    draw_figure('accuracy', opt.save_path, opt.epochs, train_acc, valid_acc)
+    draw_figure('accuracy', opt.save_path, opt.epochs, train_acc_list, valid_acc_list)
     print('save acc fig!')
