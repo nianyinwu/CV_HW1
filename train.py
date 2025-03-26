@@ -47,7 +47,7 @@ def get_args():
         '--save_path',
         '-s',
         type=str,
-        default='./n_saved_model',
+        default='./saved_model',
         help='path to save the training model'
     )
     parser.add_argument(
