@@ -36,7 +36,7 @@ class CBAM(nn.Module):
         # Channel Attention Module
         avg_pool = self.mlp(self.avg_pool(x))
         max_pool = self.mlp(self.max_pool(x))
-        channdel_out = self.Sigmoid_C(avg_pool+max_pool)
+        channdel_out = self.channel_sigmoid(avg_pool+max_pool)
         x = x * channdel_out
 
         # Spatial Attention Module
