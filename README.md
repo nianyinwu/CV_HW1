@@ -21,7 +21,7 @@ conda activate hw1
 
 ## Training
 ```shell
-python3 train.py
+python3 train.py -e <epochs> -b <batch size> -lr <learning rate> -d <data path> -s <save path> 
 ```
 ## Testing ( Inference )
 The predicted results will be saved as `prediction.csv` in the current directory.
