@@ -7,6 +7,16 @@ Name: 吳年茵
 
 In this lab, we aim to solve an __image classification__ task using ResNet-based architectures as the classification model backbone, and the model size (number of parameters) should be less than 100 million. The input consists of __RGB images__, and the dataset includes __100 object categories__. There are 21,024 images for training and validation and 2,344 images for testing.
 
+To improve the model’s classification performance for this task, I adopt ResNeXt-50,
+an advanced variant of ResNet, as the backbone due to its strong feature representation
+capabilities. I also use pre-trained weights from ImageNet to converge better and learn
+current training data based on previously learned visual features. Additionally, I experi-
+ment with architectural modifications, such as adding extra fully connected layers to the
+classifier head and introducing the Convolutional Block Attention Module (CBAM),
+which sequentially applies channel attention followed by spatial attention that is intended
+to help the model emphasize informative features across both dimensions and enhance its
+ability to focus on meaningful regions within the input.
+
 ## How to install
 1. Clone this repository and navigate to folder
 ```shell
